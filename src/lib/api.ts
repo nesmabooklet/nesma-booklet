@@ -25,6 +25,26 @@ export const IMGBB_API_KEY =
  */
 export async function executeD1Query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
   try {
+    // 1. في المتصفح، الاستعلام يتم عبر /api/d1 لمنع حظر الـ CORS
+    if (typeof window !== "undefined") {
+      try {
+        const proxyRes = await fetch("/api/d1", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sql, params }),
+        });
+        if (proxyRes.ok) {
+          const data = await proxyRes.json();
+          if (data.success && data.result && data.result[0] && Array.isArray(data.result[0].results)) {
+            return data.result[0].results as T[];
+          }
+        }
+      } catch (proxyErr) {
+        console.warn("Proxy /api/d1 failed, trying direct fallback", proxyErr);
+      }
+    }
+
+    // 2. المحاولة المباشرة (تعمل في بيئة الـ Server / SSR / Node)
     const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${D1_DB_ID}/query`;
     const res = await fetch(url, {
       method: "POST",

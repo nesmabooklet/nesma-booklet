@@ -166,7 +166,7 @@ interface Ctx {
   login: (
     phone: string,
     password: string,
-  ) => { ok: boolean; message?: string; isAdmin?: boolean };
+  ) => Promise<{ ok: boolean; message?: string; isAdmin?: boolean }>;
   register: (
     name: string,
     phone: string,
@@ -307,13 +307,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isAdmin: !!user?.isAdmin,
       settings: db.settings,
       refreshFromCloud,
-      login: (phone, password) => {
-        const found = db.users.find((u) => u.phone === phone.trim());
+      login: async (phone, password) => {
+        const cleanPhone = phone.trim();
+        let found = db.users.find((u) => u.phone === cleanPhone);
+        if (!found) {
+          try {
+            const cloudUsers = await apiGetUsers();
+            if (cloudUsers && cloudUsers.length > 0) {
+              patch((d) => ({ ...d, users: cloudUsers }));
+              found = cloudUsers.find((u) => u.phone === cleanPhone);
+            }
+          } catch (e) {
+            console.warn("Direct D1 users fetch fallback:", e);
+          }
+        }
         if (!found) return { ok: false, message: "رقم التليفون غير مسجل لدينا" };
         if (found.password !== password) return { ok: false, message: "كلمة السر غير صحيحة" };
         if (found.blocked)
           return { ok: false, message: "الحساب ده محظور، تواصل مع الدعم من فضلك" };
         patch((d) => ({ ...d, currentUserId: found.id }));
+        // مزامنة فورية لكل الطلبات من السحابة بعد الدخول مباشرة
+        await refreshFromCloud();
         return { ok: true, isAdmin: !!found.isAdmin };
       },
       register: async (name, phone, password) => {

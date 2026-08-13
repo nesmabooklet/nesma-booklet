@@ -41,12 +41,12 @@ function AuthPage() {
 
   const go = (isAdmin: boolean) => navigate({ to: isAdmin ? "/admin" : "/dashboard" });
 
-  const doLogin = () => {
+  const doLogin = async () => {
     if (!isValidEgyptPhone(lPhone)) {
       toast.error("رقم التليفون لازم يكون ١١ رقم ويبدأ بـ 010 / 011 / 012 / 015");
       return;
     }
-    const res = login(lPhone, lPass);
+    const res = await login(lPhone, lPass);
     if (!res.ok) {
       toast.error(res.message!);
       return;
@@ -268,7 +268,6 @@ function PassField({
           id={id}
           type={show ? "text" : "password"}
           value={value}
-          inputMode="numeric"
           onChange={(e) => onChange(e.target.value)}
           className="h-12 rounded-2xl pr-10 pl-10"
         />
