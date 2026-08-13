@@ -17,12 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Build project
+      - name: Build project for Cloudflare Pages
+        env:
+          NITRO_PRESET: cloudflare-pages
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
@@ -30,4 +31,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy .output/public --project-name=nesma-booklet --branch=main
+          command: pages deploy dist --project-name=nesma-booklet --branch=main
