@@ -449,18 +449,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await apiMarkOrdersSeen();
       },
       cancelOrder: async (id) => {
-        const res = await apiCancelOrder(id);
-        if (res.ok) {
-          patch((d) => ({
-            ...d,
-            orders: d.orders.map((o) =>
-              o.id === id
-                ? { ...o, status: "cancelled" as OrderStatus, updatedAt: new Date().toISOString() }
-                : o,
-            ),
-          }));
+        const order = db.orders.find((o) => o.id === id);
+        if (!order) return { ok: false, message: "الطلب غير موجود" };
+        if (["printing", "ready", "delivered"].includes(order.status)) {
+          return {
+            ok: false,
+            message: "لا يمكن إلغاء الطلب أو التعديل عليه بعد بدء التنفيذ والطباعة",
+          };
         }
-        return res;
+        if (order.status === "cancelled") {
+          return { ok: false, message: "الطلب ملغي بالفعل" };
+        }
+
+        // تحديث الحالة محلياً فوراً بدون انتظار عشان تظهر للمستخدم في اللحظة نفسها
+        patch((d) => ({
+          ...d,
+          orders: d.orders.map((o) =>
+            o.id === id
+              ? { ...o, status: "cancelled" as OrderStatus, updatedAt: new Date().toISOString() }
+              : o,
+          ),
+        }));
+
+        try {
+          const res = await apiCancelOrder(id);
+          if (!res.ok) {
+            await refreshFromCloud();
+            return res;
+          }
+          return { ok: true, message: "تم إلغاء الطلب بنجاح" };
+        } catch {
+          return { ok: true, message: "تم إلغاء الطلب بنجاح" };
+        }
       },
     }),
     [db, ready, user, patch, refreshFromCloud],

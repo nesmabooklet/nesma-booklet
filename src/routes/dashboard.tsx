@@ -140,11 +140,16 @@ function DashboardPage() {
             <AlertDialogCancel className="rounded-full">تراجع</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
+              onClick={async () => {
                 if (!toCancel) return;
-                const res = cancelOrder(toCancel);
-                res.ok ? toast.success(res.message) : toast.error(res.message);
+                const orderId = toCancel;
                 setToCancel(null);
+                const res = await cancelOrder(orderId);
+                if (res.ok) {
+                  toast.success(res.message);
+                } else {
+                  toast.error(res.message);
+                }
               }}
             >
               تأكيد الإلغاء
