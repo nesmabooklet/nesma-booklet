@@ -249,13 +249,85 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           apiGetSettings(),
         ]);
 
+      // مزامنة أي طلبات أو مستخدمين محليين تم إنشاؤهم قبل المزامنة إلى قاعدة بيانات D1 السحابية
+      if (typeof window !== "undefined") {
+        try {
+          const raw = window.localStorage.getItem(KEY);
+          if (raw) {
+            const localData = JSON.parse(raw) as DB;
+            if (localData && Array.isArray(localData.orders)) {
+              for (const lo of localData.orders) {
+                const exists = cloudOrders.some((co) => co.id === lo.id || co.code === lo.code);
+                if (!exists && lo.userId) {
+                  try {
+                    await apiCreateOrder({
+                      userId: lo.userId,
+                      userName: lo.userName,
+                      userPhone: lo.userPhone,
+                      source: lo.source,
+                      bookletTitle: lo.bookletTitle,
+                      fileName: lo.fileName,
+                      fileDataUrl: lo.fileDataUrl,
+                      pages: lo.pages,
+                      sheets: lo.sheets,
+                      copies: lo.copies,
+                      binding: lo.binding,
+                      printCost: lo.printCost,
+                      bindingCost: lo.bindingCost,
+                      deliveryFee: lo.deliveryFee,
+                      total: lo.total,
+                      schoolId: lo.schoolId,
+                      studentName: lo.studentName,
+                      deliveryMethod: lo.deliveryMethod,
+                      address: lo.address,
+                      landmark: lo.landmark,
+                      paymentMethod: lo.paymentMethod,
+                      paymentProof: lo.paymentProof,
+                    });
+                  } catch (e) {
+                    console.warn("Auto-sync local order to D1 error:", e);
+                  }
+                }
+              }
+            }
+
+            // فحص ومزامنة المستخدمين المحليين
+            if (localData && Array.isArray(localData.users)) {
+              for (const lu of localData.users) {
+                if (lu.id !== "admin") {
+                  const existsUser = cloudUsers.some((cu) => cu.phone === lu.phone);
+                  if (!existsUser) {
+                    try {
+                      await apiCreateUser({
+                        name: lu.name,
+                        phone: lu.phone,
+                        password: lu.password,
+                        isAdmin: !!lu.isAdmin,
+                        blocked: !!lu.blocked,
+                      });
+                    } catch (e) {
+                      console.warn("Auto-sync local user to D1 error:", e);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (syncErr) {
+          console.warn("Local migration error:", syncErr);
+        }
+      }
+
+      // جلب أحدث نسخة بعد المزامنة
+      const [finalOrders, finalUsers] = await Promise.all([apiGetOrders(), apiGetUsers()]);
+
       setDb((prev) => {
         const next: DB = {
           ...prev,
-          users: cloudUsers.length > 0 ? cloudUsers : prev.users,
+          users: finalUsers.length > 0 ? finalUsers : (cloudUsers.length > 0 ? cloudUsers : prev.users),
           schools: cloudSchools.length > 0 ? cloudSchools : prev.schools,
           booklets: cloudBooklets.length > 0 ? cloudBooklets : prev.booklets,
-          orders: cloudOrders.length > 0 ? cloudOrders : prev.orders,
+          orders: finalOrders.length > 0 ? finalOrders : (cloudOrders.length > 0 ? cloudOrders : prev.orders),
           settings: cloudSettings ? { ...prev.settings, ...cloudSettings } : prev.settings,
         };
         if (typeof window !== "undefined") {
