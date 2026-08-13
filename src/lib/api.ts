@@ -1,3 +1,4 @@
+import { createServerFn } from "@tanstack/react-start";
 import type { Booklet, Order, OrderStatus, School, Settings, User } from "./types";
 
 const CF_ACCOUNT_ID =
@@ -20,48 +21,33 @@ export const IMGBB_API_KEY =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_IMGBB_API_KEY) ||
   "0a4a7b445eb56f88eaf10f278e79fc92";
 
+export const executeD1ServerFn = createServerFn({ method: "POST" })
+  .validator((d: { sql: string; params?: any[] }) => d)
+  .handler(async ({ data }) => {
+    try {
+      const { sql, params } = data;
+      const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${D1_DB_ID}/query`;
+      const res = await fetch(cfUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${CF_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ sql, params: params || [] }),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
 /**
- * تنفيذ استعلام SQL على قاعدة بيانات Cloudflare D1
+ * تنفيذ استعلام SQL على قاعدة بيانات Cloudflare D1 عبر Server Function
  */
 export async function executeD1Query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
   try {
-    // 1. في المتصفح، الاستعلام يتم عبر /api/d1 لمنع حظر الـ CORS
-    if (typeof window !== "undefined") {
-      try {
-        const proxyRes = await fetch("/api/d1", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sql, params }),
-        });
-        if (proxyRes.ok) {
-          const data = await proxyRes.json();
-          if (data.success && data.result && data.result[0] && Array.isArray(data.result[0].results)) {
-            return data.result[0].results as T[];
-          }
-        }
-      } catch (proxyErr) {
-        console.warn("Proxy /api/d1 failed, trying direct fallback", proxyErr);
-      }
-    }
-
-    // 2. المحاولة المباشرة (تعمل في بيئة الـ Server / SSR / Node)
-    const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${D1_DB_ID}/query`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${CF_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ sql, params }),
-    });
-
-    if (!res.ok) {
-      console.error("D1 Query HTTP Error:", res.status, res.statusText);
-      return [];
-    }
-
-    const data = await res.json();
-    if (data.success && data.result && data.result[0] && Array.isArray(data.result[0].results)) {
+    const data: any = await executeD1ServerFn({ data: { sql, params } });
+    if (data && data.success && data.result && data.result[0] && Array.isArray(data.result[0].results)) {
       return data.result[0].results as T[];
     }
     return [];

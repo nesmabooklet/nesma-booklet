@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build && node -e \"const fs=require('fs');const p='dist/_worker.js/wrangler.json';if(fs.existsSync(p)){let c=JSON.parse(fs.readFileSync(p,'utf8'));c.compatibility_date='2026-08-13';fs.writeFileSync(p,JSON.stringify(c,null,2));}\"",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
