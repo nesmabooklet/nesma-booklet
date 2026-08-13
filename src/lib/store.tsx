@@ -450,18 +450,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       cancelOrder: async (id) => {
         const order = db.orders.find((o) => o.id === id);
-        if (!order) return { ok: false, message: "الطلب غير موجود" };
-        if (["printing", "ready", "delivered"].includes(order.status)) {
-          return {
-            ok: false,
-            message: "لا يمكن إلغاء الطلب أو التعديل عليه بعد بدء التنفيذ والطباعة",
-          };
-        }
-        if (order.status === "cancelled") {
-          return { ok: false, message: "الطلب ملغي بالفعل" };
+        if (order) {
+          if (["printing", "ready", "delivered"].includes(order.status)) {
+            return {
+              ok: false,
+              message: "لا يمكن إلغاء الطلب أو التعديل عليه بعد بدء التنفيذ والطباعة",
+            };
+          }
+          if (order.status === "cancelled") {
+            return { ok: true, message: "الطلب ملغي بالفعل" };
+          }
         }
 
-        // تحديث الحالة محلياً فوراً بدون انتظار عشان تظهر للمستخدم في اللحظة نفسها
+        // تحديث الحالة محلياً فوراً
         patch((d) => ({
           ...d,
           orders: d.orders.map((o) =>
