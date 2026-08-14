@@ -35,7 +35,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-border/70 py-4 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Nesma Booklets — جميع الحقوق محفوظة.
+        © {new Date().getFullYear()} Track Booklets — جميع الحقوق محفوظة.
       </div>
     </footer>
   );

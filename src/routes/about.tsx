@@ -8,13 +8,13 @@ import { Card, CardContent } from "@/components/ui/card";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "من نحن — Nesma Booklets" },
+      { title: "من نحن — Track Booklets" },
       {
         name: "description",
         content:
-          "تعرف على Nesma Booklets، خدمة طباعة بوكليتات المدارس وتوصيلها لباب المدرسة أو المنزل.",
+          "تعرف على Track Booklets، خدمة طباعة بوكليتات المدارس وتوصيلها لباب المدرسة أو المنزل.",
       },
-      { property: "og:title", content: "من نحن — Nesma Booklets" },
+      { property: "og:title", content: "من نحن — Track Booklets" },
       {
         property: "og:description",
         content: "خدمة طباعة بوكليتات المدارس بجودة عالية وتوصيل سريع.",
@@ -33,11 +33,11 @@ function AboutPage() {
           <Sparkles className="size-4" /> قصتنا
         </span>
         <h1 className="mt-4 font-display text-3xl font-extrabold sm:text-4xl">
-          Nesma Booklets… طباعة مذاكرة ولادك بقت أسهل
+          Track Booklets… طباعة مذاكرة ولادك بقت أسهل
         </h1>
         <p className="mt-4 leading-8 text-muted-foreground">
           بدأنا من مشكلة بسيطة بيعرفها كل ولي أمر: بوكليت المدرسة لازم يتطبع، والوقت ضيق،
-          ومكتبات الطباعة زحمة. عملنا Nesma Booklets عشان ترفع الملف من موبايلك في دقيقة، تعرف
+          ومكتبات الطباعة زحمة. عملنا Track Booklets عشان ترفع الملف من موبايلك في دقيقة، تعرف
           التكلفة فوراً وبدقة، وتستلم البوكليت مغلّف ومترتب عند باب المدرسة أو لحد البيت.
         </p>
 

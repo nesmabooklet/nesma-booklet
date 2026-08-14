@@ -28,13 +28,13 @@ import { playNotificationSound, useStore } from "@/lib/store";
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "لوحة تحكم الأدمن — Nesma Booklets" },
+      { title: "لوحة تحكم الأدمن — Track Booklets" },
       {
         name: "description",
         content: "إدارة الطلبات والمدارس والأسعار وطرق الدفع والتوصيل لخدمة طباعة البوكليتات.",
       },
       { name: "robots", content: "noindex" },
-      { property: "og:title", content: "لوحة تحكم الأدمن — Nesma Booklets" },
+      { property: "og:title", content: "لوحة تحكم الأدمن — Track Booklets" },
       { property: "og:description", content: "إدارة كاملة لمنظومة طباعة البوكليتات." },
     ],
   }),

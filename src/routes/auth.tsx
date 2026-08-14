@@ -14,12 +14,12 @@ import { isValidEgyptPhone, useStore } from "@/lib/store";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "الدخول والتسجيل — Nesma Booklets" },
+      { title: "الدخول والتسجيل — Track Booklets" },
       {
         name: "description",
         content: "سجّل برقم تليفونك وكلمة سر بسيطة وابدأ اطلب طباعة بوكليت ولادك.",
       },
-      { property: "og:title", content: "الدخول والتسجيل — Nesma Booklets" },
+      { property: "og:title", content: "الدخول والتسجيل — Track Booklets" },
       { property: "og:description", content: "حساب ولي الأمر برقم التليفون فقط." },
     ],
   }),

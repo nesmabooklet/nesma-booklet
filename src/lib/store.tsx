@@ -32,7 +32,7 @@ import {
   apiUpdateSettings,
 } from "./api";
 
-const KEY = "nesma_booklets_v1";
+const KEY = "track_booklets_v1";
 
 interface DB {
   users: User[];
@@ -49,7 +49,7 @@ const defaultSettings: Settings = {
   deliveryEnabled: true,
   deliveryFee: 25,
   instapayEnabled: true,
-  instapayNumber: "nesma@instapay",
+  instapayNumber: "track@instapay",
   vodafoneEnabled: true,
   vodafoneNumber: "01002194451",
   cashEnabled: true,
@@ -143,7 +143,7 @@ function initialDB(): DB {
 function load(): DB {
   if (typeof window === "undefined") return initialDB();
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(KEY) || window.localStorage.getItem("nesma_booklets_v1");
     if (!raw) return initialDB();
     const parsed = JSON.parse(raw) as DB;
     return {

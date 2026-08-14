@@ -38,12 +38,12 @@ import { uploadPdfToTelegram, uploadProofToImgBB } from "@/lib/api";
 export const Route = createFileRoute("/order")({
   head: () => ({
     meta: [
-      { title: "اطلب طباعة بوكليت — Nesma Booklets" },
+      { title: "اطلب طباعة بوكليت — Track Booklets" },
       {
         name: "description",
         content: "ارفع ملف البوكليت PDF واحسب التكلفة فوراً واختار طريقة الدفع والاستلام.",
       },
-      { property: "og:title", content: "اطلب طباعة بوكليت — Nesma Booklets" },
+      { property: "og:title", content: "اطلب طباعة بوكليت — Track Booklets" },
       { property: "og:description", content: "طلب طباعة بوكليت في دقيقة واحدة." },
     ],
   }),

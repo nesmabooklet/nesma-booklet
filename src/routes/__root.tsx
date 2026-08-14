@@ -80,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Nesma Booklets — طباعة بوكليتات المدارس" },
+      { title: "Track Booklets — طباعة بوكليتات المدارس" },
       {
         name: "description",
         content: "اطبع بوكليت ولادك أونلاين واستلمه عند باب المدرسة أو البيت.",

@@ -32,9 +32,9 @@ import { LOCKED_STATUSES } from "@/lib/types";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "طلباتي — Nesma Booklets" },
+      { title: "طلباتي — Track Booklets" },
       { name: "description", content: "تابع طلبات طباعة البوكليتات وحالتها وحمّل ملفاتك." },
-      { property: "og:title", content: "طلباتي — Nesma Booklets" },
+      { property: "og:title", content: "طلباتي — Track Booklets" },
       { property: "og:description", content: "لوحة ولي الأمر لمتابعة الطلبات." },
     ],
   }),

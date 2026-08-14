@@ -13,7 +13,7 @@ export function Brand({
     <Link to="/" className={cn("flex items-center gap-2", className)}>
       <img
         src={logo}
-        alt="شعار Nesma Booklets"
+        alt="شعار Track Booklets"
         width={64}
         height={64}
         className={cn("object-contain", size === "sm" ? "size-9" : "size-11")}
@@ -25,7 +25,7 @@ export function Brand({
             size === "sm" ? "text-base" : "text-lg",
           )}
         >
-          Nesma Booklets
+          Track Booklets
         </span>
         <span className="text-[11px] font-medium text-muted-foreground">
           طباعة بوكليتات المدارس

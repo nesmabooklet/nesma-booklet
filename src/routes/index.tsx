@@ -30,13 +30,13 @@ import hero from "@/assets/hero.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Nesma Booklets — اطبع بوكليت ولادك واستلمه عند المدرسة" },
+      { title: "Track Booklets — اطبع بوكليت ولادك واستلمه عند المدرسة" },
       {
         name: "description",
         content:
           "ارفع ملف البوكليت PDF، اعرف التكلفة فوراً، وادفع إنستا باي أو فودافون كاش أو كاش عند الاستلام، واستلم عند باب المدرسة أو البيت.",
       },
-      { property: "og:title", content: "Nesma Booklets — طباعة بوكليتات المدارس" },
+      { property: "og:title", content: "Track Booklets — طباعة بوكليتات المدارس" },
       {
         property: "og:description",
         content: "اطبع بوكليت ولادك من غير تعب واستلمه عند باب المدرسة أو البيت.",
@@ -108,7 +108,7 @@ function Home() {
             </div>
             <img
               src={hero}
-              alt="مندوب Nesma Booklets يسلّم بوكليت مطبوع لطلاب أمام باب المدرسة"
+              alt="مندوب Track Booklets يسلّم بوكليت مطبوع لطلاب أمام باب المدرسة"
               width={1280}
               height={960}
               className="w-full rounded-[2rem] border border-border/70 object-cover shadow-glow"
