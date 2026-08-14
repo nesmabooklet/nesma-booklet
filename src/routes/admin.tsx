@@ -90,7 +90,7 @@ function AdminPage() {
     { v: "overview", l: "نظرة عامة", i: <BarChart3 className="size-4" /> },
     { v: "orders", l: "الطلبات", i: <Package className="size-4" /> },
     { v: "schools", l: "المدارس", i: <School className="size-4" /> },
-    { v: "booklets", l: "البوكليتات", i: <BookOpen className="size-4" /> },
+    { v: "booklets", l: "المعرض", i: <BookOpen className="size-4" /> },
     { v: "users", l: "المستخدمون", i: <Users className="size-4" /> },
     { v: "settings", l: "الإعدادات", i: <Settings2 className="size-4" /> },
     { v: "help", l: "التعليمات", i: <HelpCircle className="size-4" /> },

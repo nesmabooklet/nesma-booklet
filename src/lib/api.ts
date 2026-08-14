@@ -294,6 +294,8 @@ export async function apiGetBooklets(): Promise<Booklet[]> {
     grade: string;
     subject: string;
     pages: number;
+    price?: number;
+    image_url?: string;
     school_id?: string;
     description?: string;
     active: number;
@@ -305,6 +307,8 @@ export async function apiGetBooklets(): Promise<Booklet[]> {
     grade: r.grade,
     subject: r.subject,
     pages: r.pages,
+    price: r.price !== null && r.price !== undefined ? Number(r.price) : undefined,
+    imageUrl: r.image_url || undefined,
     schoolId: r.school_id || undefined,
     description: r.description || undefined,
     active: !!r.active,
@@ -314,9 +318,20 @@ export async function apiGetBooklets(): Promise<Booklet[]> {
 export async function apiCreateBooklet(booklet: Omit<Booklet, "id">): Promise<Booklet> {
   const id = `b${Date.now()}`;
   await executeD1Query(
-    `INSERT INTO booklets (id, title, grade, subject, pages, school_id, description, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-    [id, booklet.title, booklet.grade, booklet.subject, booklet.pages, booklet.schoolId || null, booklet.description || null, booklet.active ? 1 : 0],
+    `INSERT INTO booklets (id, title, grade, subject, pages, price, image_url, school_id, description, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    [
+      id,
+      booklet.title,
+      booklet.grade,
+      booklet.subject,
+      booklet.pages,
+      booklet.price !== undefined ? booklet.price : null,
+      booklet.imageUrl || null,
+      booklet.schoolId || null,
+      booklet.description || null,
+      booklet.active ? 1 : 0,
+    ],
   );
   return { ...booklet, id };
 }
@@ -329,6 +344,8 @@ export async function apiUpdateBooklet(id: string, patch: Partial<Booklet>): Pro
   if (patch.grade !== undefined) { fields.push("grade = ?"); params.push(patch.grade); }
   if (patch.subject !== undefined) { fields.push("subject = ?"); params.push(patch.subject); }
   if (patch.pages !== undefined) { fields.push("pages = ?"); params.push(patch.pages); }
+  if (patch.price !== undefined) { fields.push("price = ?"); params.push(patch.price); }
+  if (patch.imageUrl !== undefined) { fields.push("image_url = ?"); params.push(patch.imageUrl || null); }
   if (patch.schoolId !== undefined) { fields.push("school_id = ?"); params.push(patch.schoolId || null); }
   if (patch.description !== undefined) { fields.push("description = ?"); params.push(patch.description || null); }
   if (patch.active !== undefined) { fields.push("active = ?"); params.push(patch.active ? 1 : 0); }

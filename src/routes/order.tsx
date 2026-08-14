@@ -3,15 +3,25 @@ import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Banknote,
+  BookOpen,
   CheckCircle2,
+  ChevronLeft,
   CloudUpload,
+  Eye,
   FileText,
+  FolderTree,
   Home,
+  ImageIcon,
   ImageUp,
   Loader2,
   Lock,
   School,
+  Search,
+  ShoppingBag,
+  Sparkles,
+  Tag,
   Wallet,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
@@ -24,6 +34,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -34,6 +50,7 @@ import { Separator } from "@/components/ui/separator";
 import { EGP, playNotificationSound, useStore } from "@/lib/store";
 import { fileToDataUrl, readPdf, sheetsFromPages } from "@/lib/pdf";
 import { uploadPdfToTelegram, uploadProofToImgBB } from "@/lib/api";
+import type { Booklet } from "@/lib/types";
 
 export const Route = createFileRoute("/order")({
   head: () => ({
@@ -61,6 +78,10 @@ function OrderPage() {
 
   const [source, setSource] = useState<"upload" | "catalog">("upload");
   const [bookletId, setBookletId] = useState("");
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [previewBooklet, setPreviewBooklet] = useState<Booklet | null>(null);
+  const [galleryFolder, setGalleryFolder] = useState<string>("all");
+  const [gallerySearch, setGallerySearch] = useState<string>("");
   const [fileName, setFileName] = useState("");
   const [fileData, setFileData] = useState("");
   const [rawPdfFile, setRawPdfFile] = useState<File | null>(null);
@@ -92,9 +113,30 @@ function OrderPage() {
   const selectedBooklet = booklets.find((b) => b.id === bookletId);
   const effectivePages = source === "catalog" ? (selectedBooklet?.pages ?? 0) : pages;
 
+  const allGalleryFolders = useMemo(
+    () => Array.from(new Set(booklets.map((b) => b.grade).filter(Boolean))),
+    [booklets],
+  );
+
+  const filteredGalleryBooklets = useMemo(() => {
+    return booklets.filter((b) => {
+      const matchF = galleryFolder === "all" || b.grade === galleryFolder;
+      const matchS =
+        gallerySearch.trim() === "" ||
+        b.title.toLowerCase().includes(gallerySearch.toLowerCase()) ||
+        b.subject.toLowerCase().includes(gallerySearch.toLowerCase()) ||
+        b.grade.toLowerCase().includes(gallerySearch.toLowerCase());
+      return matchF && matchS;
+    });
+  }, [booklets, galleryFolder, gallerySearch]);
+
   const cost = useMemo(() => {
     const sheets = sheetsFromPages(effectivePages);
-    const printCost = +(sheets * settings.pricePerSheet * copies).toFixed(2);
+    const baseUnitPrintCost =
+      source === "catalog" && selectedBooklet?.price !== undefined
+        ? selectedBooklet.price
+        : +(sheets * settings.pricePerSheet).toFixed(2);
+    const printCost = +(baseUnitPrintCost * copies).toFixed(2);
     const bindingCost = binding ? +(settings.bindingPrice * copies).toFixed(2) : 0;
     const deliveryFee =
       deliveryMethod === "home" && settings.deliveryEnabled ? settings.deliveryFee : 0;
@@ -105,7 +147,7 @@ function OrderPage() {
       deliveryFee,
       total: +(printCost + bindingCost + deliveryFee).toFixed(2),
     };
-  }, [effectivePages, copies, binding, deliveryMethod, settings]);
+  }, [effectivePages, copies, binding, deliveryMethod, settings, source, selectedBooklet]);
 
   const onPickPdf = async (f?: File) => {
     if (!f) return;
@@ -361,31 +403,91 @@ function OrderPage() {
                   )}
                 </div>
               ) : (
-                <div className="mt-4">
-                  <Label className="font-semibold">اختار البوكليت</Label>
-                  <Select value={bookletId} onValueChange={setBookletId}>
-                    <SelectTrigger className="mt-1.5 h-12 w-full rounded-2xl">
-                      <SelectValue placeholder="اختار من القائمة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {booklets.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.title} — {b.grade} ({b.pages} صفحة)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedBooklet?.description && (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {selectedBooklet.description}
-                    </p>
+                <div className="mt-4 space-y-4">
+                  {selectedBooklet ? (
+                    <div className="flex flex-col sm:flex-row items-center gap-4 rounded-3xl border border-primary/30 bg-primary-soft/30 p-4 shadow-sm">
+                      {/* Book Thumbnail */}
+                      <div className="relative aspect-[3/4] w-24 sm:w-28 shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-md flex items-center justify-center">
+                        {selectedBooklet.imageUrl ? (
+                          <img
+                            src={selectedBooklet.imageUrl}
+                            alt={selectedBooklet.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-1 p-2 text-center">
+                            <BookOpen className="size-6 text-primary" />
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                              بدون صورة
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 text-center sm:text-right space-y-1">
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                          <span className="rounded-full bg-primary px-3 py-0.5 text-xs font-bold text-primary-foreground">
+                            {selectedBooklet.grade}
+                          </span>
+                          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                            {selectedBooklet.subject}
+                          </span>
+                        </div>
+                        <h3 className="font-display text-lg font-bold text-foreground">
+                          {selectedBooklet.title}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedBooklet.pages} صفحة • {sheetsFromPages(selectedBooklet.pages)} ورقة طباعة
+                        </p>
+                        <p className="text-sm font-extrabold text-primary pt-0.5">
+                          سعر النسخة:{" "}
+                          {EGP(
+                            selectedBooklet.price !== undefined
+                              ? selectedBooklet.price
+                              : sheetsFromPages(selectedBooklet.pages) * settings.pricePerSheet,
+                          )}
+                        </p>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-full font-bold text-xs shrink-0"
+                        onClick={() => setGalleryOpen(true)}
+                      >
+                        <BookOpen className="size-3.5" /> تغيير من المعرض
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setGalleryOpen(true)}
+                      className="group flex w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-primary/50 bg-primary-soft/30 p-8 text-center transition-all hover:bg-primary-soft/70 hover:shadow-soft"
+                    >
+                      <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md transition-transform group-hover:scale-110">
+                        <BookOpen className="size-7" />
+                      </div>
+                      <div>
+                        <span className="font-display text-lg font-extrabold text-foreground">
+                          اضغط هنا لفتح معرض البوكليتات 📚
+                        </span>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          تصفح المذكرات والكتب مقسمة حسب السنوات الدراسية مع صور الأغلفة والأسعار
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-xs font-bold text-primary-foreground shadow-sm">
+                        <Sparkles className="size-3.5" /> تصفح المعرض واختيار البوكليت ({booklets.length} متاح)
+                      </span>
+                    </button>
                   )}
                 </div>
               )}
             </StepCard>
 
             {/* STEP 2 */}
-            <StepCard n="٢" title="بيانات الطالب والمدرسة">
+            <div id="step-2">
+              <StepCard n="٢" title="بيانات الطالب والمدرسة">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label className="font-semibold">اسم الطالب</Label>
@@ -433,6 +535,7 @@ function OrderPage() {
                 </div>
               </div>
             </StepCard>
+            </div>
 
             {/* STEP 3 */}
             <StepCard n="٣" title="طريقة الاستلام">
@@ -607,6 +710,256 @@ function OrderPage() {
             </Card>
           </aside>
         </div>
+
+        {/* ======================================================== */}
+        {/* FULL BOOKLETS EXHIBITION / GALLERY MODAL                */}
+        {/* ======================================================== */}
+        <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+          <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden rounded-3xl p-0">
+            {/* MODAL HEADER */}
+            <div className="border-b border-border/70 bg-primary-soft/40 p-5 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <DialogTitle className="font-display text-2xl font-extrabold flex items-center gap-2">
+                    <BookOpen className="size-6 text-primary" />
+                    معرض البوكليتات والمذكرات المدرسية 📚
+                  </DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    تصفح مذكرات السنوات الدراسية واختر البوكليت المطلوب للشراء والطباعة فوراً.
+                  </p>
+                </div>
+              </div>
+
+              {/* SEARCH & FOLDERS TABS */}
+              <div className="mt-4 space-y-3">
+                <div className="relative max-w-md">
+                  <Search className="absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={gallerySearch}
+                    onChange={(e) => setGallerySearch(e.target.value)}
+                    placeholder="ابحث باسم البوكليت، المادة، أو السنة الدراسية..."
+                    className="h-10 rounded-2xl bg-background pr-10 pl-4 text-sm shadow-xs"
+                  />
+                </div>
+
+                {/* GRADE / FOLDER CHIPS */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <Button
+                    size="sm"
+                    variant={galleryFolder === "all" ? "default" : "outline"}
+                    className="rounded-full font-bold text-xs"
+                    onClick={() => setGalleryFolder("all")}
+                  >
+                    كل السنوات ({booklets.length})
+                  </Button>
+                  {allGalleryFolders.map((f) => {
+                    const cnt = booklets.filter((b) => b.grade === f).length;
+                    return (
+                      <Button
+                        key={f}
+                        size="sm"
+                        variant={galleryFolder === f ? "default" : "outline"}
+                        className="rounded-full font-bold text-xs"
+                        onClick={() => setGalleryFolder(f)}
+                      >
+                        {f} ({cnt})
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* GALLERY GRID */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {filteredGalleryBooklets.length === 0 ? (
+                <div className="py-16 text-center space-y-3">
+                  <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                    <BookOpen className="size-7" />
+                  </div>
+                  <h3 className="font-display text-lg font-bold">لا توجد بوكليتات مطابقة</h3>
+                  <p className="text-xs text-muted-foreground">
+                    جرب البحث بكلمة أخرى أو اختر سنة دراسية مختلفة
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {filteredGalleryBooklets.map((b) => {
+                    const priceUnit =
+                      b.price !== undefined
+                        ? b.price
+                        : sheetsFromPages(b.pages) * settings.pricePerSheet;
+
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => setPreviewBooklet(b)}
+                        className="group flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-glow cursor-pointer"
+                      >
+                        {/* BOOK THUMBNAIL */}
+                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted/60 flex items-center justify-center border-b border-border/60">
+                          {b.imageUrl ? (
+                            <img
+                              src={b.imageUrl}
+                              alt={b.title}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center gap-2 p-3 text-center">
+                              <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-transform group-hover:scale-110">
+                                <BookOpen className="size-6" />
+                              </div>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                <ImageIcon className="size-2.5" /> بدون صورة
+                              </span>
+                            </div>
+                          )}
+
+                          {/* BADGES */}
+                          <div className="absolute top-2 right-2 flex flex-col gap-1">
+                            <span className="rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-bold shadow-xs backdrop-blur-md">
+                              {b.grade}
+                            </span>
+                          </div>
+
+                          <div className="absolute bottom-2 left-2">
+                            <span className="rounded-full bg-primary/95 px-2.5 py-0.5 text-[11px] font-extrabold text-primary-foreground shadow-md backdrop-blur-md">
+                              {EGP(priceUnit)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* INFO */}
+                        <div className="flex flex-1 flex-col justify-between p-3 space-y-2">
+                          <div>
+                            <span className="text-[11px] font-bold text-primary block">
+                              {b.subject} • {b.pages} صفحة
+                            </span>
+                            <h4 className="font-display text-sm font-bold text-foreground line-clamp-2 mt-0.5 leading-snug">
+                              {b.title}
+                            </h4>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            className="w-full rounded-full font-bold text-xs shadow-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewBooklet(b);
+                            }}
+                          >
+                            <Eye className="size-3" /> معاينة وتفاصيل
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ======================================================== */}
+        {/* BOOKLET DETAIL & PURCHASE POPUP                          */}
+        {/* ======================================================== */}
+        <Dialog
+          open={!!previewBooklet}
+          onOpenChange={(v) => {
+            if (!v) setPreviewBooklet(null);
+          }}
+        >
+          <DialogContent className="max-w-lg overflow-hidden rounded-3xl p-0">
+            {previewBooklet && (
+              <div>
+                {/* PREVIEW HERO IMAGE */}
+                <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted flex items-center justify-center border-b border-border/70">
+                  {previewBooklet.imageUrl ? (
+                    <img
+                      src={previewBooklet.imageUrl}
+                      alt={previewBooklet.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
+                      <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <BookOpen className="size-8" />
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                        <ImageIcon className="size-3.5" /> بدون صورة غلاف
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* DETAILS BODY */}
+                <div className="p-6 space-y-5">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">
+                        {previewBooklet.grade}
+                      </span>
+                      <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                        {previewBooklet.subject}
+                      </span>
+                    </div>
+                    <DialogTitle className="font-display text-xl font-extrabold text-foreground leading-snug">
+                      {previewBooklet.title}
+                    </DialogTitle>
+                    {previewBooklet.description && (
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {previewBooklet.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* SPECS GRID */}
+                  <div className="grid grid-cols-3 gap-3 rounded-2xl border border-border/70 bg-card p-3.5 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground font-semibold">عدد الصفحات</p>
+                      <p className="text-base font-extrabold text-foreground mt-0.5">
+                        {previewBooklet.pages}
+                      </p>
+                    </div>
+                    <div className="border-x border-border/60">
+                      <p className="text-xs text-muted-foreground font-semibold">أوراق الطباعة</p>
+                      <p className="text-base font-extrabold text-foreground mt-0.5">
+                        {sheetsFromPages(previewBooklet.pages)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-semibold">سعر النسخة</p>
+                      <p className="text-base font-extrabold text-primary mt-0.5">
+                        {EGP(
+                          previewBooklet.price !== undefined
+                            ? previewBooklet.price
+                            : sheetsFromPages(previewBooklet.pages) * settings.pricePerSheet,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* BUY ACTION BUTTON */}
+                  <Button
+                    size="lg"
+                    className="w-full rounded-full font-display text-base font-extrabold shadow-soft"
+                    onClick={() => {
+                      setBookletId(previewBooklet.id);
+                      setPreviewBooklet(null);
+                      setGalleryOpen(false);
+                      setTimeout(() => {
+                        document.getElementById("step-2")?.scrollIntoView({ behavior: "smooth" });
+                      }, 150);
+                      toast.success(`تم اختيار «${previewBooklet.title}» بنجاح — أكمل بيانات الاستلام ✨`);
+                    }}
+                  >
+                    <ShoppingBag className="size-5" /> شراء هذا البوكليت ومتابعة الطلب
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
       <SiteFooter />
     </div>

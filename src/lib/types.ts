@@ -44,6 +44,8 @@ export interface Booklet {
   grade: string;
   subject: string;
   pages: number;
+  price?: number;
+  imageUrl?: string;
   schoolId?: string;
   description?: string;
   active: boolean;
