@@ -113,10 +113,12 @@ function OrderPage() {
   const selectedBooklet = booklets.find((b) => b.id === bookletId);
   const effectivePages = source === "catalog" ? (selectedBooklet?.pages ?? 0) : pages;
 
-  const allGalleryFolders = useMemo(
-    () => Array.from(new Set(booklets.map((b) => b.grade).filter(Boolean))),
-    [booklets],
-  );
+  const allGalleryFolders = useMemo(() => {
+    if (db.folders && db.folders.length > 0) {
+      return db.folders.map((f) => f.name);
+    }
+    return Array.from(new Set(booklets.map((b) => b.grade).filter(Boolean)));
+  }, [db.folders, booklets]);
 
   const filteredGalleryBooklets = useMemo(() => {
     return booklets.filter((b) => {

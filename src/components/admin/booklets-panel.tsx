@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
+  Folder,
+  FolderEdit,
   FolderPlus,
   FolderTree,
   ImageIcon,
@@ -16,7 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,24 +41,9 @@ import { sheetsFromPages } from "@/lib/pdf";
 import { uploadProofToImgBB } from "@/lib/api";
 import type { Booklet } from "@/lib/types";
 
-const defaultFolders = [
-  "الصف الأول الابتدائي",
-  "الصف الثاني الابتدائي",
-  "الصف الثالث الابتدائي",
-  "الصف الرابع الابتدائي",
-  "الصف الخامس الابتدائي",
-  "الصف السادس الابتدائي",
-  "الصف الأول الإعدادي",
-  "الصف الثاني الإعدادي",
-  "الصف الثالث الإعدادي",
-  "الصف الأول الثانوي",
-  "الصف الثاني الثانوي",
-  "الصف الثالث الثانوي",
-];
-
 const empty: Omit<Booklet, "id"> = {
   title: "",
-  grade: "الصف الأول الابتدائي",
+  grade: "",
   subject: "لغة عربية",
   pages: 50,
   price: undefined,
@@ -67,23 +54,26 @@ const empty: Omit<Booklet, "id"> = {
 };
 
 export function AdminBooklets() {
-  const { db, settings, addBooklet, updateBooklet, removeBooklet } = useStore();
+  const { db, settings, addBooklet, updateBooklet, removeBooklet, addFolder, updateFolder, removeFolder } = useStore();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<Booklet, "id">>(empty);
   const [uploadingImg, setUploadingImg] = useState(false);
   const [activeFolder, setActiveFolder] = useState<string>("all");
   const [search, setSearch] = useState("");
+  
+  // Folder modals
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [customFolder, setCustomFolder] = useState("");
+  const [editFolderModal, setEditFolderModal] = useState<{ id: string; name: string } | null>(null);
+  const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // قائمة الفولدرات المتاحة من البوكليتات الحالية + الافتراضية
-  const allFolders = useMemo(() => {
-    const fromDb = db.booklets.map((b) => b.grade).filter(Boolean);
-    const combined = Array.from(new Set([...defaultFolders, ...fromDb]));
-    return combined;
-  }, [db.booklets]);
+  // قائمة الفولدرات المسجلة فعلياً في قاعدة البيانات
+  const foldersList = useMemo(() => {
+    return db.folders || [];
+  }, [db.folders]);
 
   // البوكليتات بعد التصفية والبحث
   const filteredBooklets = useMemo(() => {
@@ -126,6 +116,10 @@ export function AdminBooklets() {
       toast.error("اكتب اسم البوكليت");
       return;
     }
+    if (!form.grade || form.grade.trim().length === 0) {
+      toast.error("اختار الفولدر أو السنة الدراسية للبوكليت");
+      return;
+    }
     if (form.pages < 1) {
       toast.error("عدد الصفحات لازم يكون صفحة واحدة على الأقل");
       return;
@@ -142,16 +136,52 @@ export function AdminBooklets() {
     setForm(empty);
   };
 
-  const handleAddFolder = () => {
-    if (customFolder.trim().length < 2) {
+  const handleCreateFolder = async () => {
+    const name = customFolder.trim();
+    if (name.length < 2) {
       toast.error("اكتب اسم الفولدر أو السنة الدراسية");
       return;
     }
-    setActiveFolder(customFolder.trim());
-    setForm((prev) => ({ ...prev, grade: customFolder.trim() }));
-    toast.success(`تم إنشاء فولدر «${customFolder.trim()}»`);
+    if (foldersList.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
+      toast.error("هذا الفولدر موجود بالفعل");
+      return;
+    }
+    await addFolder(name);
+    setActiveFolder(name);
+    setForm((prev) => ({ ...prev, grade: name }));
+    toast.success(`تم إنشاء فولدر «${name}» وحفظه في قاعدة البيانات ✨`);
     setCustomFolder("");
     setNewFolderOpen(false);
+  };
+
+  const handleUpdateFolder = async () => {
+    if (!editFolderModal) return;
+    const name = editFolderModal.name.trim();
+    if (name.length < 2) {
+      toast.error("اكتب اسم الفولدر الجديد");
+      return;
+    }
+    await updateFolder(editFolderModal.id, name);
+    if (activeFolder === editFolderModal.name) {
+      setActiveFolder(name);
+    }
+    toast.success(`تم تعديل اسم الفولدر وتحديث جميع البوكليتات التابعة له ✨`);
+    setEditFolderModal(null);
+  };
+
+  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+    const bookletsCount = db.booklets.filter((b) => b.grade === folderName).length;
+    if (bookletsCount > 0) {
+      const confirmed = window.confirm(
+        `الفولدر «${folderName}» يحتوي على ${bookletsCount} بوكليت.\nهل أنت متأكد من حذفه؟`,
+      );
+      if (!confirmed) return;
+    }
+    await removeFolder(folderId, folderName);
+    if (activeFolder === folderName) {
+      setActiveFolder("all");
+    }
+    toast.success(`تم حذف فولدر «${folderName}» بنجاح`);
   };
 
   return (
@@ -164,26 +194,36 @@ export function AdminBooklets() {
             معرض البوكليتات والسنوات الدراسية ({db.booklets.length})
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            أضف الفولدرات الرئيسية والبوكليتات مع صور الأغلفة والأسعار لتظهر في معرض العميل.
+            تحكم كامل في الفولدرات والسنوات الدراسية وحذف الفولدرات الفاضية أو إضافة بوكليتات وصور أغلفة.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             className="rounded-full font-bold"
+            onClick={() => setManageFoldersOpen(true)}
+          >
+            <FolderTree className="size-4" /> إدارة الفولدرات والسنوات ({foldersList.length})
+          </Button>
+          <Button
+            variant="secondary"
+            className="rounded-full font-bold"
             onClick={() => setNewFolderOpen(true)}
           >
-            <FolderPlus className="size-4" /> إضافة فولدر / سنة دراسية
+            <FolderPlus className="size-4" /> + فولدر جديد
           </Button>
           <Button
             className="rounded-full font-bold shadow-soft"
             onClick={() => {
               setEditId(null);
-              setForm(empty);
+              setForm({
+                ...empty,
+                grade: activeFolder !== "all" ? activeFolder : foldersList[0]?.name || "",
+              });
               setOpen(true);
             }}
           >
-            <Plus className="size-4" /> إضافة بوكليت جديد
+            <Plus className="size-4" /> إضافة بوكليت
           </Button>
         </div>
       </div>
@@ -196,7 +236,7 @@ export function AdminBooklets() {
         </div>
         <div className="rounded-2xl border border-border/70 bg-card p-4">
           <p className="text-xs text-muted-foreground font-semibold">الفولدرات والسنوات</p>
-          <p className="text-2xl font-extrabold text-primary mt-1">{allFolders.length}</p>
+          <p className="text-2xl font-extrabold text-primary mt-1">{foldersList.length}</p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-card p-4">
           <p className="text-xs text-muted-foreground font-semibold">بوكليتات بغلاف مصور</p>
@@ -212,14 +252,23 @@ export function AdminBooklets() {
         </div>
       </div>
 
-      {/* FOLDERS FILTER TABS */}
-      <div className="space-y-3">
+      {/* FOLDERS BAR WITH INLINE ACTIONS */}
+      <div className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-muted-foreground flex items-center gap-1.5">
-            <FolderTree className="size-4 text-primary" /> الفولدرات الرئيسية (السنوات الدراسية):
+          <span className="text-sm font-bold text-foreground flex items-center gap-2">
+            <FolderTree className="size-4 text-primary" /> الفولدرات والسنوات الدراسية:
           </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs font-bold text-primary hover:bg-primary-soft"
+            onClick={() => setManageFoldersOpen(true)}
+          >
+            <FolderEdit className="size-3.5" /> تعديل وحذف الفولدرات
+          </Button>
         </div>
-        <div className="flex flex-wrap gap-2 pb-1">
+
+        <div className="flex flex-wrap gap-2 items-center">
           <Button
             size="sm"
             variant={activeFolder === "all" ? "default" : "outline"}
@@ -228,20 +277,67 @@ export function AdminBooklets() {
           >
             كل السنوات ({db.booklets.length})
           </Button>
-          {allFolders.map((f) => {
-            const count = db.booklets.filter((b) => b.grade === f).length;
+
+          {foldersList.map((f) => {
+            const count = db.booklets.filter((b) => b.grade === f.name).length;
+            const isActive = activeFolder === f.name;
             return (
-              <Button
-                key={f}
-                size="sm"
-                variant={activeFolder === f ? "default" : "outline"}
-                className="rounded-full font-bold text-xs"
-                onClick={() => setActiveFolder(f)}
+              <div
+                key={f.id}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                    : "bg-card text-foreground border-border hover:border-primary/40"
+                }`}
               >
-                {f} ({count})
-              </Button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFolder(f.name)}
+                  className="font-bold flex items-center gap-1.5"
+                >
+                  <Folder className="size-3" />
+                  {f.name} ({count})
+                </button>
+
+                <button
+                  type="button"
+                  title="تعديل اسم الفولدر"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditFolderModal(f);
+                  }}
+                  className={`size-5 rounded-full flex items-center justify-center transition-colors ${
+                    isActive ? "hover:bg-primary-foreground/20" : "hover:bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <Pencil className="size-2.5" />
+                </button>
+
+                <button
+                  type="button"
+                  title="حذف هذا الفولدر"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteFolder(f.id, f.name);
+                  }}
+                  className={`size-5 rounded-full flex items-center justify-center transition-colors ${
+                    isActive ? "hover:bg-destructive text-primary-foreground" : "hover:bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  <Trash2 className="size-2.5" />
+                </button>
+              </div>
             );
           })}
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-full font-bold text-xs border-dashed border-primary/50 text-primary hover:bg-primary-soft"
+            onClick={() => setNewFolderOpen(true)}
+          >
+            <Plus className="size-3" /> إضافة فولدر
+          </Button>
         </div>
       </div>
 
@@ -265,13 +361,16 @@ export function AdminBooklets() {
             </div>
             <h3 className="font-display text-lg font-bold">لا توجد بوكليتات في هذا القسم</h3>
             <p className="text-sm text-muted-foreground">
-              اضغط على «إضافة بوكليت جديد» لإنشاء أول بوكليت ورفع غلافه.
+              اضغط على «إضافة بوكليت جديد» لإنشاء أول بوكليت في هذا الفولدر ورفع غلافه.
             </p>
             <Button
               className="rounded-full font-bold mt-2"
               onClick={() => {
                 setEditId(null);
-                setForm({ ...empty, grade: activeFolder === "all" ? empty.grade : activeFolder });
+                setForm({
+                  ...empty,
+                  grade: activeFolder !== "all" ? activeFolder : foldersList[0]?.name || "",
+                });
                 setOpen(true);
               }}
             >
@@ -478,17 +577,26 @@ export function AdminBooklets() {
               <F label="السنة الدراسية (الفولدر)">
                 <Select
                   value={form.grade}
-                  onValueChange={(v) => setForm({ ...form, grade: v })}
+                  onValueChange={(v) => {
+                    if (v === "__new__") {
+                      setNewFolderOpen(true);
+                    } else {
+                      setForm({ ...form, grade: v });
+                    }
+                  }}
                 >
                   <SelectTrigger className="h-11 w-full rounded-2xl">
-                    <SelectValue />
+                    <SelectValue placeholder="اختار الفولدر" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allFolders.map((f) => (
-                      <SelectItem key={f} value={f}>
-                        {f}
+                    {foldersList.map((f) => (
+                      <SelectItem key={f.id} value={f.name}>
+                        {f.name}
                       </SelectItem>
                     ))}
+                    <SelectItem value="__new__" className="text-primary font-bold">
+                      + إضافة فولدر جديد...
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </F>
@@ -577,17 +685,124 @@ export function AdminBooklets() {
               <Input
                 value={customFolder}
                 onChange={(e) => setCustomFolder(e.target.value)}
-                placeholder="مثال: لغات KG1، دبلومات فنية، إلخ..."
+                placeholder="مثال: الصف الثاني الابتدائي، لغات KG1..."
                 className="h-11 rounded-2xl"
               />
             </F>
             <Button
-              onClick={handleAddFolder}
+              onClick={handleCreateFolder}
               className="w-full rounded-full font-bold shadow-soft"
               size="lg"
             >
-              <Sparkles className="size-4" /> إضافة الفولدر وتحديده
+              <Sparkles className="size-4" /> إنشاء الفولدر وحفظه في السحابة
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT FOLDER NAME MODAL */}
+      <Dialog open={!!editFolderModal} onOpenChange={(v) => !v && setEditFolderModal(null)}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">تعديل اسم الفولدر</DialogTitle>
+          </DialogHeader>
+          {editFolderModal && (
+            <div className="space-y-4 pt-2">
+              <F label="الاسم الجديد للفولدر">
+                <Input
+                  value={editFolderModal.name}
+                  onChange={(e) =>
+                    setEditFolderModal({ ...editFolderModal, name: e.target.value })
+                  }
+                  className="h-11 rounded-2xl"
+                />
+              </F>
+              <p className="text-xs text-muted-foreground">
+                سيتم تحديث اسم الفولدر في قاعدة البيانات وتحديث جميع البوكليتات المرتبطة به تلقائياً.
+              </p>
+              <Button
+                onClick={handleUpdateFolder}
+                className="w-full rounded-full font-bold shadow-soft"
+                size="lg"
+              >
+                <CheckCircle2 className="size-4" /> حفظ التعديل
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MANAGE ALL FOLDERS MODAL */}
+      <Dialog open={manageFoldersOpen} onOpenChange={setManageFoldersOpen}>
+        <DialogContent className="rounded-3xl max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl flex items-center gap-2">
+              <FolderTree className="size-5 text-primary" /> إدارة جميع الفولدرات والسنوات الدراسية
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-2">
+            <div className="flex gap-2">
+              <Input
+                value={customFolder}
+                onChange={(e) => setCustomFolder(e.target.value)}
+                placeholder="اسم فولدر جديد..."
+                className="h-11 rounded-2xl"
+              />
+              <Button
+                onClick={handleCreateFolder}
+                className="rounded-2xl font-bold shrink-0"
+              >
+                <Plus className="size-4" /> إضافة
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              {foldersList.length === 0 ? (
+                <p className="text-center py-6 text-sm text-muted-foreground">
+                  لا توجد فولدرات حالياً. أضف أول سنة دراسية أعلاه.
+                </p>
+              ) : (
+                foldersList.map((f) => {
+                  const cnt = db.booklets.filter((b) => b.grade === f.name).length;
+                  return (
+                    <div
+                      key={f.id}
+                      className="flex items-center justify-between rounded-2xl border border-border/70 bg-card p-3 shadow-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Folder className="size-4 text-primary" />
+                        <div>
+                          <p className="font-bold text-sm">{f.name}</p>
+                          <p className="text-xs text-muted-foreground">{cnt} بوكليت مسجل</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="size-8 rounded-full p-0"
+                          onClick={() => setEditFolderModal(f)}
+                          title="تعديل الاسم"
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="size-8 rounded-full p-0 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteFolder(f.id, f.name)}
+                          title="حذف الفولدر"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

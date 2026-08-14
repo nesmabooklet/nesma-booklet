@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { Booklet, Order, OrderStatus, School, Settings, User } from "./types";
+import type { Booklet, Folder, Order, OrderStatus, School, Settings, User } from "./types";
 
 const CF_ACCOUNT_ID =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_CF_ACCOUNT_ID) ||
@@ -285,6 +285,37 @@ export async function apiUpdateSchool(id: string, patch: Partial<School>): Promi
 
 export async function apiDeleteSchool(id: string): Promise<void> {
   await executeD1Query("DELETE FROM schools WHERE id = ?;", [id]);
+}
+
+export async function apiGetFolders(): Promise<Folder[]> {
+  const rows = await executeD1Query<{
+    id: string;
+    name: string;
+    sort_order?: number;
+  }>("SELECT * FROM folders ORDER BY sort_order ASC, name ASC;");
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    sortOrder: r.sort_order ?? 0,
+  }));
+}
+
+export async function apiCreateFolder(name: string): Promise<Folder> {
+  const id = `f${Date.now()}`;
+  await executeD1Query(
+    "INSERT INTO folders (id, name, sort_order) VALUES (?, ?, ?);",
+    [id, name, Date.now()],
+  );
+  return { id, name, sortOrder: Date.now() };
+}
+
+export async function apiUpdateFolder(id: string, name: string): Promise<void> {
+  await executeD1Query("UPDATE folders SET name = ? WHERE id = ?;", [name, id]);
+}
+
+export async function apiDeleteFolder(id: string): Promise<void> {
+  await executeD1Query("DELETE FROM folders WHERE id = ?;", [id]);
 }
 
 export async function apiGetBooklets(): Promise<Booklet[]> {

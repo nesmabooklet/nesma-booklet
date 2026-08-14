@@ -38,6 +38,12 @@ export interface School {
   active: boolean;
 }
 
+export interface Folder {
+  id: string;
+  name: string;
+  sortOrder?: number;
+}
+
 export interface Booklet {
   id: string;
   title: string;

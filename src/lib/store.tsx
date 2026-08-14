@@ -18,6 +18,10 @@ import {
   apiCreateSchool,
   apiUpdateSchool,
   apiDeleteSchool,
+  apiGetFolders,
+  apiCreateFolder,
+  apiUpdateFolder,
+  apiDeleteFolder,
   apiGetBooklets,
   apiCreateBooklet,
   apiUpdateBooklet,
@@ -37,6 +41,7 @@ const KEY = "track_booklets_v1";
 interface DB {
   users: User[];
   schools: School[];
+  folders: Folder[];
   booklets: Booklet[];
   orders: Order[];
   settings: Settings;
@@ -154,6 +159,15 @@ const seedBooklets: Booklet[] = [
   },
 ];
 
+const seedFolders: Folder[] = [
+  { id: "f1", name: "الصف الأول الابتدائي", sortOrder: 1 },
+  { id: "f2", name: "الصف الرابع الابتدائي", sortOrder: 2 },
+  { id: "f3", name: "الصف السادس الابتدائي", sortOrder: 3 },
+  { id: "f4", name: "الصف الثاني الإعدادي", sortOrder: 4 },
+  { id: "f5", name: "الصف الثالث الإعدادي", sortOrder: 5 },
+  { id: "f6", name: "الصف الأول الثانوي", sortOrder: 6 },
+];
+
 function initialDB(): DB {
   return {
     users: [
@@ -167,6 +181,7 @@ function initialDB(): DB {
       },
     ],
     schools: seedSchools,
+    folders: seedFolders,
     booklets: seedBooklets,
     orders: [],
     settings: defaultSettings,
@@ -183,6 +198,7 @@ function load(): DB {
     return {
       ...initialDB(),
       ...parsed,
+      folders: Array.isArray(parsed.folders) && parsed.folders.length > 0 ? parsed.folders : seedFolders,
       settings: { ...defaultSettings, ...parsed.settings },
     };
   } catch {
@@ -211,6 +227,9 @@ interface Ctx {
   addSchool: (s: Omit<School, "id">) => Promise<void>;
   updateSchool: (id: string, patch: Partial<School>) => Promise<void>;
   removeSchool: (id: string) => Promise<void>;
+  addFolder: (name: string) => Promise<Folder | null>;
+  updateFolder: (id: string, name: string) => Promise<void>;
+  removeFolder: (id: string, name: string) => Promise<void>;
   addBooklet: (b: Omit<Booklet, "id">) => Promise<void>;
   updateBooklet: (id: string, patch: Partial<Booklet>) => Promise<void>;
   removeBooklet: (id: string) => Promise<void>;
@@ -274,14 +293,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // مزامنة البيانات من Cloudflare D1
   const refreshFromCloud = useCallback(async () => {
     try {
-      const [cloudUsers, cloudSchools, cloudBooklets, cloudOrders, cloudSettings] =
+      const [cloudUsers, cloudSchools, cloudFolders, cloudBooklets, cloudOrders, cloudSettings] =
         await Promise.all([
           apiGetUsers(),
           apiGetSchools(),
+          apiGetFolders(),
           apiGetBooklets(),
           apiGetOrders(),
           apiGetSettings(),
         ]);
+
+      let finalFolders = cloudFolders;
+      if (cloudFolders.length === 0) {
+        try {
+          for (const sf of seedFolders) {
+            await apiCreateFolder(sf.name);
+          }
+          finalFolders = await apiGetFolders();
+        } catch (e) {
+          console.warn("Auto-seed folders to D1:", e);
+        }
+      }
 
       // مزامنة أي طلبات أو مستخدمين محليين تم إنشاؤهم قبل المزامنة إلى قاعدة بيانات D1 السحابية
       if (typeof window !== "undefined") {
@@ -360,6 +392,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...prev,
           users: finalUsers.length > 0 ? finalUsers : (cloudUsers.length > 0 ? cloudUsers : prev.users),
           schools: cloudSchools.length > 0 ? cloudSchools : prev.schools,
+          folders: finalFolders.length > 0 ? finalFolders : prev.folders,
           booklets: cloudBooklets.length > 0 ? cloudBooklets : prev.booklets,
           orders: finalOrders.length > 0 ? finalOrders : (cloudOrders.length > 0 ? cloudOrders : prev.orders),
           settings: cloudSettings ? { ...prev.settings, ...cloudSettings } : prev.settings,
@@ -478,6 +511,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeSchool: async (id) => {
         patch((d) => ({ ...d, schools: d.schools.filter((s) => s.id !== id) }));
         await apiDeleteSchool(id);
+      },
+      addFolder: async (name: string) => {
+        const clean = name.trim();
+        if (!clean) return null;
+        const created = await apiCreateFolder(clean);
+        patch((d) => ({ ...d, folders: [...d.folders, created] }));
+        return created;
+      },
+      updateFolder: async (id: string, name: string) => {
+        const clean = name.trim();
+        if (!clean) return;
+        const oldFolder = db.folders.find((f) => f.id === id);
+        patch((d) => ({
+          ...d,
+          folders: d.folders.map((f) => (f.id === id ? { ...f, name: clean } : f)),
+          booklets: oldFolder
+            ? d.booklets.map((b) => (b.grade === oldFolder.name ? { ...b, grade: clean } : b))
+            : d.booklets,
+        }));
+        await apiUpdateFolder(id, clean);
+      },
+      removeFolder: async (id: string, name: string) => {
+        patch((d) => ({
+          ...d,
+          folders: d.folders.filter((f) => f.id !== id),
+        }));
+        await apiDeleteFolder(id);
       },
       addBooklet: async (b) => {
         const created = await apiCreateBooklet(b);
